@@ -30,6 +30,7 @@
 #include "at_custom_zigbee_cmd.h"
 #include "at_custom_deauth_cmd.h"
 #include "at_custom_stascan_cmd.h"
+#include "at_custom_cmd_get_status.h"
 
 #ifdef CONFIG_AT_BASE_ON_SPI
 #include "freertos/FreeRTOS.h"
@@ -429,6 +430,7 @@ void at_custom_init(void)
     esp_at_custom_zigbee_cmd_register();
     esp_at_custom_deauth_cmd_register();
     esp_at_custom_stascan_cmd_register();
+    esp_at_custom_cmd_get_status_register();
     xTaskCreate(at_spi_slave_task , "at_spi_task" , 4096 , NULL , 10 , NULL);
 }
 #endif
