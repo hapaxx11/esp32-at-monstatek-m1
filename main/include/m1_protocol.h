@@ -97,9 +97,10 @@
 /* Standard ESP-AT command profile assumed when CMD_GET_STATUS receives no response.
  * Detection flow (host side):
  *   1. Send CMD_GET_STATUS on the binary SPI channel.
- *   2. Valid response -> binary firmware; use at_cmd_bitmap + ext_bitmap.
- *   3. Timeout / no magic -> stock AT firmware; use M1_AT_CMD_PROFILE_DEFAULT and
- *      treat ext_bitmap as zero.
+ *   2. Valid response -> firmware reports m1_esp32_status_payload_t with
+ *      unified cap_bitmap (M1_ESP32_CAP_* bits).
+ *   3. Timeout / no magic -> host may use a static fallback profile for
+ *      older firmware that does not self-report.
  *
  * GATT client commands (M1_AT_CMD_BLEGATTCPRIMSRV / BLEGATTCCHAR / BLEGATTCWR /
  * BLEGATTCNTFY) are intentionally excluded from this profile.  They require the
@@ -235,6 +236,7 @@ typedef struct {
 
 _Static_assert(sizeof(m1_cmd_t) == 64, "m1_cmd_t must be 64 bytes");
 _Static_assert(sizeof(m1_resp_t) == 64, "m1_resp_t must be 64 bytes");
+/* 1 byte proto_ver + 8 bytes cap_bitmap + 32 bytes fw_name = 41 bytes */
 _Static_assert(sizeof(m1_esp32_status_payload_t) == 41,
                "m1_esp32_status_payload_t must be 41 bytes");
 
