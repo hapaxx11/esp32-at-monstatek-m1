@@ -1,17 +1,16 @@
 /*
  * at_custom_cmd_get_status.c — M1 Status Query AT Command
  *
- * Implements AT+M1STATUS? which returns this firmware's capability bitmaps
- * in the same format as CMD_GET_STATUS in the binary SPI protocol defined
- * in m1_protocol.h.
+ * Implements:
+ *   - AT+GETSTATUSHEX (new protocol response, hex-encoded raw payload)
  *
  * Detection flow (host side):
  *   1. Host sends CMD_GET_STATUS on the binary SPI channel.
  *   2. Binary firmware responds with m1_resp_t → binary mode.
  *   3. AT firmware: timeout (different SPI protocol) → host falls back to
- *      M1_AT_CMD_PROFILE_DEFAULT with ext_bitmap = 0.
- *   4. Host issues AT+M1STATUS? to discover the AT firmware's actual
- *      capability set, which may exceed M1_AT_CMD_PROFILE_DEFAULT.
+ *      AT text probing.
+ *   4. Host issues AT+GETSTATUSHEX to discover this AT firmware's capability
+ *      set in the same payload shape used by CMD_GET_STATUS.
  *
  * Response format:
  *   +M1STATUS:<proto_ver>,<at_cmd_bitmap_hex>,<ext_bitmap_hex>,<fw_name>
@@ -26,28 +25,42 @@
 #include "m1_protocol.h"
 #include "at_custom_cmd_get_status.h"
 
-#define TAG "m1status"
+#define TAG "getstatushex"
 
-/* AT+M1STATUS? — return capability bitmaps */
-static uint8_t at_query_cmd_m1status(uint8_t *cmd_name)
+static void hex_encode(const uint8_t *in, size_t len, char *out)
 {
+    static const char hexdigits[] = "0123456789ABCDEF";
+    size_t i;
+    for (i = 0; i < len; ++i) {
+        out[(i * 2u)]     = hexdigits[(in[i] >> 4) & 0x0F];
+        out[(i * 2u) + 1] = hexdigits[in[i] & 0x0F];
+    }
+    out[len * 2u] = '\0';
+}
+
+/* AT+GETSTATUSHEX / AT+GETSTATUSHEX? — return hex-encoded raw m1_esp32_status_payload_t */
+static uint8_t at_cmd_getstatushex(uint8_t *cmd_name)
+{
+    m1_esp32_status_payload_t payload = {0};
+    char hex[(sizeof(payload) * 2u) + 1u];
+    char buf[120];
+    int n;
+
     (void)cmd_name;
 
-    char buf[96];   /* "+M1STATUS:" (10) + proto_ver (3) + "," (1) + at_bitmap hex (16) +
-                     * "," (1) + ext_bitmap hex (8) + "," (1) + fw_name (≤31) +
-                     * "\r\n" (2) + NUL (1) → max ~73 bytes; 96 gives headroom */
-    int n = snprintf(buf, sizeof(buf),
-                     "+M1STATUS:%u,%016llX,%08lX,%s\r\n",
-                     (unsigned)M1_ESP32_CAPS_PROTO_VER,
-                     (unsigned long long)M1_AT_CMD_PROFILE_ESP32AT,
-                     (unsigned long)M1_EXT_CMD_PROFILE_ESP32AT,
-                     M1_FW_NAME_ESP32AT);
+    payload.proto_ver = (uint8_t)M1_ESP32_CAPS_PROTO_VER;
+    payload.cap_bitmap = (uint64_t)M1_ESP32_CAP_PROFILE_ESP32AT;
+    strncpy(payload.fw_name, M1_FW_NAME_ESP32AT, sizeof(payload.fw_name) - 1u);
+    payload.fw_name[sizeof(payload.fw_name) - 1u] = '\0';
+
+    hex_encode((const uint8_t *)&payload, sizeof(payload), hex);
+    n = snprintf(buf, sizeof(buf), "+GETSTATUSHEX:%s\r\n", hex);
     esp_at_port_write_data((uint8_t *)buf, (size_t)n);
     return ESP_AT_RESULT_CODE_OK;
 }
 
 static const esp_at_cmd_struct s_m1status_cmd_list[] = {
-    {"+M1STATUS", NULL, at_query_cmd_m1status, NULL, NULL},
+    {"+GETSTATUSHEX", NULL, at_cmd_getstatushex, NULL, at_cmd_getstatushex},
 };
 
 bool esp_at_custom_cmd_get_status_register(void)

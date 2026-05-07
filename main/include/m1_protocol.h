@@ -14,15 +14,7 @@
 #define CMD_PING              0x01
 #define CMD_GET_STATUS        0x02
 
-/* CMD_GET_STATUS payload (protocol version 1)
- *
- * The status payload is split into two namespaces:
- *   - at_cmd_bitmap: bits for standard ESP-AT commands the host can rely on.
- *   - ext_bitmap: bits for binary-firmware-only extensions with no stock AT analog.
- *
- * This keeps stock ESP-AT as the default path: AT firmware returns nothing on the
- * binary SPI channel, and the host falls back to a predefined ESP-AT command set.
- */
+/* CMD_GET_STATUS payload (protocol version 1) */
 #define M1_ESP32_CAPS_PROTO_VER 1u
 
 /* Standard ESP-AT command bits reported in CMD_GET_STATUS.at_cmd_bitmap */
@@ -57,6 +49,22 @@
 #define M1_EXT_CMD_BLE_HID        (1u << 7)
 #define M1_EXT_CMD_BT_MANAGE      (1u << 8)
 #define M1_EXT_CMD_802154         (1u << 9)
+
+/* Unified capability bits used by the new single-bitmap protocol. */
+#define M1_ESP32_CAP_WIFI_SCAN        (1ull << 0)
+#define M1_ESP32_CAP_WIFI_STA_SCAN    (1ull << 1)
+#define M1_ESP32_CAP_WIFI_SNIFF       (1ull << 2)
+#define M1_ESP32_CAP_WIFI_ATTACK      (1ull << 3)
+#define M1_ESP32_CAP_WIFI_NETSCAN     (1ull << 4)
+#define M1_ESP32_CAP_WIFI_EVIL_PORTAL (1ull << 5)
+#define M1_ESP32_CAP_WIFI_CONNECT     (1ull << 6)
+#define M1_ESP32_CAP_BLE_SCAN         (1ull << 7)
+#define M1_ESP32_CAP_BLE_ADV          (1ull << 8)
+#define M1_ESP32_CAP_BLE_SPAM         (1ull << 9)
+#define M1_ESP32_CAP_BLE_SNIFF        (1ull << 10)
+#define M1_ESP32_CAP_BLE_HID          (1ull << 11)
+#define M1_ESP32_CAP_BT_MANAGE        (1ull << 12)
+#define M1_ESP32_CAP_802154           (1ull << 13)
 
 #define M1_AT_CMD_PROFILE_SIN360 \
     (M1_AT_CMD_AT | \
@@ -96,8 +104,8 @@
  * GATT client commands (M1_AT_CMD_BLEGATTCPRIMSRV / BLEGATTCCHAR / BLEGATTCWR /
  * BLEGATTCNTFY) are intentionally excluded from this profile.  They require the
  * NimBLE-based ESP-AT build; stock Espressif AT binaries do not always enable
- * them.  Customised builds (e.g. ESP32AT-M1) report the full SIN360 profile via
- * AT+M1STATUS? instead.
+ * them.  Customised builds may report additional capabilities through
+ * AT+GETSTATUSHEX.
  */
 #define M1_AT_CMD_PROFILE_DEFAULT \
     (M1_AT_CMD_AT | \
@@ -221,15 +229,14 @@ typedef struct {
 
 typedef struct {
     uint8_t  proto_ver;
-    uint64_t at_cmd_bitmap;
-    uint32_t ext_bitmap;
+    uint64_t cap_bitmap;
     char     fw_name[32];
 } __attribute__((packed)) m1_esp32_status_payload_t;
 
 _Static_assert(sizeof(m1_cmd_t) == 64, "m1_cmd_t must be 64 bytes");
 _Static_assert(sizeof(m1_resp_t) == 64, "m1_resp_t must be 64 bytes");
-_Static_assert(sizeof(m1_esp32_status_payload_t) == 45,
-               "m1_esp32_status_payload_t must be 45 bytes");
+_Static_assert(sizeof(m1_esp32_status_payload_t) == 41,
+               "m1_esp32_status_payload_t must be 41 bytes");
 
 /* ---- ESP32-AT-M1 firmware capability profiles ---- */
 
@@ -255,5 +262,17 @@ _Static_assert(sizeof(m1_esp32_status_payload_t) == 45,
      M1_EXT_CMD_BLE_HID     | \
      M1_EXT_CMD_802154)
 
-/* Firmware identifier reported by AT+M1STATUS? */
+/* Unified profile bitmaps used by AT+GETSTATUSHEX (single cap_bitmap payload). */
+#define M1_ESP32_CAP_PROFILE_AT_BEDGE117 \
+    (M1_ESP32_CAP_BLE_HID | \
+     M1_ESP32_CAP_802154)
+
+#define M1_ESP32_CAP_PROFILE_AT_NEDDY299 \
+    (M1_ESP32_CAP_PROFILE_AT_BEDGE117 | \
+     M1_ESP32_CAP_WIFI_STA_SCAN       | \
+     M1_ESP32_CAP_WIFI_ATTACK)
+
+#define M1_ESP32_CAP_PROFILE_ESP32AT  M1_ESP32_CAP_PROFILE_AT_NEDDY299
+
+/* Firmware identifier reported by AT+GETSTATUSHEX */
 #define M1_FW_NAME_ESP32AT  "ESP32AT-M1"
