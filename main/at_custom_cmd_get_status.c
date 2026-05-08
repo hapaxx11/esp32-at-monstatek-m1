@@ -9,7 +9,7 @@
  *   2. Binary firmware responds with m1_resp_t → binary mode.
  *   3. AT firmware: timeout (different SPI protocol) → host falls back to
  *      AT text probing.
- *   4. Host issues AT+GETSTATUSHEX to discover this AT firmware's capability
+ *   4. Host issues AT+GETSTATUSHEX to discover this AT firmware's command
  *      set in the same payload shape used by CMD_GET_STATUS.
  *
  * Response format:
@@ -55,8 +55,8 @@ static uint8_t at_cmd_getstatushex(uint8_t *cmd_name)
 
     (void)cmd_name;
 
-    payload.proto_ver = M1_ESP32_CAPS_PROTO_VER;
-    payload.cap_bitmap = M1_ESP32_CMD_PROFILE_ESP32AT;
+    payload.proto_ver = M1_ESP32_PROTO_VER;
+    payload.cmd_bitmap = M1_ESP32_CMD_PROFILE_ESP32AT;
     strncpy(payload.fw_name, M1_FW_NAME_ESP32AT, sizeof(payload.fw_name) - 1u);
     payload.fw_name[sizeof(payload.fw_name) - 1u] = '\0';
 
