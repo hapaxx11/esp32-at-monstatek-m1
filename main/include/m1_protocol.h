@@ -38,18 +38,6 @@
 #define M1_AT_CMD_BLEGATTCWR      (1ull << 17)
 #define M1_AT_CMD_BLEGATTCNTFY    (1ull << 18)
 
-/* Binary-firmware-only extension bits reported in CMD_GET_STATUS.ext_bitmap */
-#define M1_EXT_CMD_STA_SCAN       (1u << 0)
-#define M1_EXT_CMD_WIFI_SNIFF     (1u << 1)
-#define M1_EXT_CMD_WIFI_ATTACK    (1u << 2)
-#define M1_EXT_CMD_WIFI_NETSCAN   (1u << 3)
-#define M1_EXT_CMD_WIFI_PORTAL    (1u << 4)
-#define M1_EXT_CMD_BLE_SPAM       (1u << 5)
-#define M1_EXT_CMD_BLE_SNIFF      (1u << 6)
-#define M1_EXT_CMD_BLE_HID        (1u << 7)
-#define M1_EXT_CMD_BT_MANAGE      (1u << 8)
-#define M1_EXT_CMD_802154         (1u << 9)
-
 /* Unified capability bits used by the new single-bitmap protocol. */
 #define M1_ESP32_CAP_WIFI_SCAN        (1ull << 0)
 #define M1_ESP32_CAP_WIFI_STA_SCAN    (1ull << 1)
@@ -84,15 +72,6 @@
      M1_AT_CMD_BLEGATTCCHAR | \
      M1_AT_CMD_BLEGATTCWR | \
      M1_AT_CMD_BLEGATTCNTFY)
-
-#define M1_EXT_CMD_PROFILE_SIN360 \
-    (M1_EXT_CMD_STA_SCAN | \
-     M1_EXT_CMD_WIFI_SNIFF | \
-     M1_EXT_CMD_WIFI_ATTACK | \
-     M1_EXT_CMD_WIFI_NETSCAN | \
-     M1_EXT_CMD_WIFI_PORTAL | \
-     M1_EXT_CMD_BLE_SPAM | \
-     M1_EXT_CMD_BLE_SNIFF)
 
 /* Standard ESP-AT command profile assumed when CMD_GET_STATUS receives no response.
  * Detection flow (host side):
@@ -248,21 +227,6 @@ _Static_assert(sizeof(m1_esp32_status_payload_t) == 41,
  * client operations, on top of the baseline M1_AT_CMD_PROFILE_DEFAULT.
  */
 #define M1_AT_CMD_PROFILE_ESP32AT   M1_AT_CMD_PROFILE_SIN360
-
-/*
- * Extension AT command profile for the ESP32-AT-M1 firmware.
- * These custom AT commands map to the corresponding M1_EXT_CMD_* bits:
- *
- *   M1_EXT_CMD_STA_SCAN    — AT+STASCAN   (promiscuous station discovery)
- *   M1_EXT_CMD_WIFI_ATTACK — AT+DEAUTH    (deauthentication frames)
- *   M1_EXT_CMD_BLE_HID     — AT+HIDKBINIT / AT+HIDKBSEND  (BLE HID keyboard)
- *   M1_EXT_CMD_802154      — AT+ZIGSNIFF  (IEEE 802.15.4 / Zigbee / Thread sniffer)
- */
-#define M1_EXT_CMD_PROFILE_ESP32AT \
-    (M1_EXT_CMD_STA_SCAN    | \
-     M1_EXT_CMD_WIFI_ATTACK | \
-     M1_EXT_CMD_BLE_HID     | \
-     M1_EXT_CMD_802154)
 
 /* Unified profile bitmaps used by AT+GETSTATUSHEX (single cap_bitmap payload). */
 #define M1_ESP32_CAP_PROFILE_AT_BEDGE117 \
