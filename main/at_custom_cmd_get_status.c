@@ -56,7 +56,7 @@ static uint8_t at_cmd_getstatushex(uint8_t *cmd_name)
     (void)cmd_name;
 
     payload.proto_ver = M1_ESP32_CAPS_PROTO_VER;
-    payload.cap_bitmap = M1_ESP32_CAP_PROFILE_ESP32AT;
+    payload.cap_bitmap = M1_ESP32_CMD_PROFILE_ESP32AT;
     strncpy(payload.fw_name, M1_FW_NAME_ESP32AT, sizeof(payload.fw_name) - 1u);
     payload.fw_name[sizeof(payload.fw_name) - 1u] = '\0';
 

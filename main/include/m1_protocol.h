@@ -38,20 +38,23 @@
 #define M1_AT_CMD_BLEGATTCWR      (1ull << 17)
 #define M1_AT_CMD_BLEGATTCNTFY    (1ull << 18)
 
-#define M1_ESP32_CAP_WIFI_SCAN        (1ull << 0)
-#define M1_ESP32_CAP_WIFI_STA_SCAN    (1ull << 1)
-#define M1_ESP32_CAP_WIFI_SNIFF       (1ull << 2)
-#define M1_ESP32_CAP_WIFI_ATTACK      (1ull << 3)
-#define M1_ESP32_CAP_WIFI_NETSCAN     (1ull << 4)
-#define M1_ESP32_CAP_WIFI_EVIL_PORTAL (1ull << 5)
-#define M1_ESP32_CAP_WIFI_CONNECT     (1ull << 6)
-#define M1_ESP32_CAP_BLE_SCAN         (1ull << 7)
-#define M1_ESP32_CAP_BLE_ADV          (1ull << 8)
-#define M1_ESP32_CAP_BLE_SPAM         (1ull << 9)
-#define M1_ESP32_CAP_BLE_SNIFF        (1ull << 10)
-#define M1_ESP32_CAP_BLE_HID          (1ull << 11)
-#define M1_ESP32_CAP_BT_MANAGE        (1ull << 12)
-#define M1_ESP32_CAP_802154           (1ull << 13)
+#define M1_ESP32_CMD_WIFI_SCAN     (1ull << 0)
+#define M1_ESP32_CMD_STA_SCAN      (1ull << 1)
+#define M1_ESP32_CMD_BLE_SCAN      (1ull << 2)
+#define M1_ESP32_CMD_BLE_ADV       (1ull << 3)
+#define M1_ESP32_CMD_DEAUTH        (1ull << 4)
+#define M1_ESP32_CMD_BEACON        (1ull << 5)
+#define M1_ESP32_CMD_PROBE_FLOOD   (1ull << 6)
+#define M1_ESP32_CMD_KARMA         (1ull << 7)
+#define M1_ESP32_CMD_PKTMON        (1ull << 8)
+#define M1_ESP32_CMD_PORTAL        (1ull << 9)
+#define M1_ESP32_CMD_WIFI_JOIN     (1ull << 10)
+#define M1_ESP32_CMD_WIFI_SET_MAC  (1ull << 11)
+#define M1_ESP32_CMD_WIFI_SET_CHAN (1ull << 12)
+#define M1_ESP32_CMD_NETSCAN       (1ull << 13)
+#define M1_ESP32_CMD_AT_BLE_HID    (1ull << 14)
+#define M1_ESP32_CMD_AT_BT_MANAGE  (1ull << 15)
+#define M1_ESP32_CMD_AT_802154     (1ull << 16)
 
 #define M1_AT_CMD_PROFILE_SIN360 \
     (M1_AT_CMD_AT | \
@@ -76,7 +79,7 @@
  * Detection flow (host side):
  *   1. Send CMD_GET_STATUS on the binary SPI channel.
  *   2. Valid response -> firmware reports m1_esp32_status_payload_t with
- *      unified cap_bitmap (M1_ESP32_CAP_* bits).
+ *      unified cap_bitmap (M1_ESP32_CMD_* bits).
  *   3. Timeout / no magic -> host may use a static fallback profile for
  *      older firmware that does not self-report.
  *
@@ -228,16 +231,16 @@ _Static_assert(sizeof(m1_esp32_status_payload_t) == 41,
 #define M1_AT_CMD_PROFILE_ESP32AT   M1_AT_CMD_PROFILE_SIN360
 
 /* Unified profile bitmaps used by AT+GETSTATUSHEX (single cap_bitmap payload). */
-#define M1_ESP32_CAP_PROFILE_AT_BEDGE117 \
-    (M1_ESP32_CAP_BLE_HID | \
-     M1_ESP32_CAP_802154)
+#define M1_ESP32_CMD_PROFILE_AT_BEDGE117 \
+    (M1_ESP32_CMD_AT_BLE_HID | \
+     M1_ESP32_CMD_AT_802154)
 
-#define M1_ESP32_CAP_PROFILE_AT_NEDDY299 \
-    (M1_ESP32_CAP_PROFILE_AT_BEDGE117 | \
-     M1_ESP32_CAP_WIFI_STA_SCAN       | \
-     M1_ESP32_CAP_WIFI_ATTACK)
+#define M1_ESP32_CMD_PROFILE_AT_NEDDY299 \
+    (M1_ESP32_CMD_PROFILE_AT_BEDGE117 | \
+     M1_ESP32_CMD_STA_SCAN            | \
+     M1_ESP32_CMD_DEAUTH)
 
-#define M1_ESP32_CAP_PROFILE_ESP32AT  M1_ESP32_CAP_PROFILE_AT_NEDDY299
+#define M1_ESP32_CMD_PROFILE_ESP32AT  M1_ESP32_CMD_PROFILE_AT_NEDDY299
 
 /* Firmware identifier reported by AT+GETSTATUSHEX */
 #define M1_FW_NAME_ESP32AT  "ESP32AT-M1"

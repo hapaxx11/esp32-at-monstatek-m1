@@ -17,7 +17,7 @@
  *
  * Payload bytes are m1_esp32_status_payload_t:
  *   [0]      proto_ver (M1_ESP32_CAPS_PROTO_VER)
- *   [1..8]   cap_bitmap (uint64_t, little-endian, M1_ESP32_CAP_* bits)
+ *   [1..8]   cap_bitmap (uint64_t, little-endian, M1_ESP32_CMD_* bits)
  *   [9..40]  fw_name[32] (null-terminated firmware identifier)
  *
  * This allows the M1 host to discover the AT firmware's actual capability
