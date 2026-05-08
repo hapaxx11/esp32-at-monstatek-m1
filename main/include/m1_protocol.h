@@ -38,7 +38,6 @@
 #define M1_AT_CMD_BLEGATTCWR      (1ull << 17)
 #define M1_AT_CMD_BLEGATTCNTFY    (1ull << 18)
 
-/* Unified capability bits used by the new single-bitmap protocol. */
 #define M1_ESP32_CAP_WIFI_SCAN        (1ull << 0)
 #define M1_ESP32_CAP_WIFI_STA_SCAN    (1ull << 1)
 #define M1_ESP32_CAP_WIFI_SNIFF       (1ull << 2)
