@@ -7,7 +7,7 @@
  * ─── Protocol overview ────────────────────────────────────────────────────
  *
  * The M1 host first tries a binary CMD_GET_STATUS probe (opcode 0x02) before
- * falling back to the AT+CMD? text enumeration.  Responding to opcode 0x02
+ * falling back to the AT+CMD? text enumeration. Responding to opcode 0x02
  * eliminates the ~5 s AT+CMD? timeout that would otherwise occur on every
  * STM32 boot when the host waits for the AT task to become ready.
  *

@@ -57,7 +57,7 @@ falling back to AT text enumeration.
 | Offset | Size | Field | Value |
 |--------|------|-------|-------|
 | 0 | 1 | `proto_ver` | `0x01` |
-| 1–8 | 8 | `cap_bitmap` | `0x0000000000014412` (little-endian) |
+| 1–8 | 8 | `cap_bitmap` | `0x14412` (little-endian) |
 | 9–40 | 32 | `fw_name` | `"AT-neddy299-1.0.1"` (null-terminated) |
 
 **Capability bits set** (matching the commands this firmware implements):
