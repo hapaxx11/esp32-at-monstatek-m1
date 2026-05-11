@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: ESP32-AT CI
 
 on:
   push:
@@ -7,17 +7,40 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  validate:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install Python dependencies
+      run: pip install -r requirements.txt
+
+    - name: Validate factory param CSV
+      run: |
+        python -c "
+        import csv
+        with open('components/customized_partitions/raw_data/factory_param/factory_param_data.csv') as f:
+            rows = list(csv.reader(f))
+        headers = rows[0]
+        assert 'platform' in headers, 'Missing platform column'
+        assert 'module_name' in headers, 'Missing module_name column'
+        print('factory_param_data.csv is valid ({} modules)'.format(len(rows) - 1))
+        "
+
+    - name: Validate module configs
+      run: |
+        python -c "
+        import os
+        config_root = 'module_config'
+        for module_dir in os.listdir(config_root):
+            idf_ver = os.path.join(config_root, module_dir, 'IDF_VERSION')
+            assert os.path.exists(idf_ver), 'Missing IDF_VERSION in {}'.format(module_dir)
+        print('All {} module configs are valid'.format(len(os.listdir(config_root))))
+        "
