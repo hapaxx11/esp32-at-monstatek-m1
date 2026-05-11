@@ -43,6 +43,39 @@ Note: this firmware's [M1 project](https://github.com/neddy299/M1) project uses 
     - enabled: 0 = sniff stopped, 1 = snifff started
     - channel: wifi channel
 
+## CMD_GET_STATUS binary protocol
+
+In addition to the AT text interface, this firmware responds to the M1 host's
+binary capability probe (opcode `0x02`) over SPI.  This eliminates the ~5 s
+`AT+CMD?` timeout the M1 would otherwise wait through on every boot before
+falling back to AT text enumeration.
+
+**Wire format** (host → firmware): 1 byte `0x02`
+
+**Response** (firmware → host): 41-byte packed payload
+
+| Offset | Size | Field | Value |
+|--------|------|-------|-------|
+| 0 | 1 | `proto_ver` | `0x01` |
+| 1–8 | 8 | `cap_bitmap` | `0x0000000000014412` (little-endian) |
+| 9–40 | 32 | `fw_name` | `"AT-neddy299-1.0.1"` (null-terminated) |
+
+**Capability bits set** (matching the commands this firmware implements):
+
+| Bit | Constant | Command |
+|-----|----------|---------|
+| 1 | `M1_ESP32_CAP_STA_SCAN` | `AT+STASCAN` |
+| 4 | `M1_ESP32_CAP_DEAUTH` | `AT+DEAUTH` |
+| 10 | `M1_ESP32_CAP_WIFI_JOIN` | `AT+CWJAP` / `AT+CWQAP` |
+| 14 | `M1_ESP32_CAP_BLE_HID` | `AT+BLEHIDINIT` / `AT+BLEHIDKB` |
+| 16 | `M1_ESP32_CAP_802154` | `AT+ZIGSNIFF` |
+
+The implementation lives in `main/interface/spi/at_spi_task_esp32_series.c`
+(receive loop) and `main/include/at_m1_status.h` (constants, struct, helper).
+Other ESP32 firmware variants can copy `at_m1_status.h`, adjust
+`M1_ESP32_THIS_FW_CAP_BITMAP` and `M1_ESP32_THIS_FW_NAME`, and add the same
+opcode check to their own SPI receive loop.
+
 ## Building
 
 The following instructions are for Linux, but with minor changes will work on Windows and macOS.

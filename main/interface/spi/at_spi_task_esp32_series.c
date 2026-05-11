@@ -24,12 +24,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "esp_at.h"
 #include "at_custom_hid_cmd.h"
 #include "at_custom_zigbee_cmd.h"
 #include "at_custom_deauth_cmd.h"
 #include "at_custom_stascan_cmd.h"
+#include "at_m1_status.h"
 
 #ifdef CONFIG_AT_BASE_ON_SPI
 #include "freertos/FreeRTOS.h"
@@ -257,9 +259,30 @@ static void at_spi_slave_task(void* pvParameters)
                 break;
             }
 
-            xStreamBufferSend(spi_slave_rx_ring_buf, (void*) data_buf, ret_trans->trans_len, portMAX_DELAY);
-            // notify length to AT core
-            esp_at_port_recv_data_notify(ret_trans->trans_len, portMAX_DELAY);
+            /* Intercept binary M1 opcodes before the AT framework sees them. */
+            if (ret_trans->trans_len >= 1 && data_buf[0] == M1_CMD_GET_STATUS_OPCODE) {
+                /* Respond with the 41-byte capability descriptor. */
+                m1_esp32_status_payload_t status_payload;
+                at_m1_status_build_payload(&status_payload);
+
+                xStreamBufferSend(spi_slave_tx_ring_buf, (void*)&status_payload,
+                                  sizeof(status_payload), portMAX_DELAY);
+                spi_mutex_lock();
+                if (initiative_send_flag == 0) {
+                    initiative_send_flag = 1;
+                    spi_msg_t spi_msg = { .direct = SPI_SLAVE_WR };
+                    if (xQueueSend(msg_queue, (void*)&spi_msg, 0) != pdPASS) {
+                        ESP_LOGE(TAG, "send WR queue for CMD_GET_STATUS error");
+                    }
+                }
+                spi_mutex_unlock();
+                ESP_LOGD(TAG, "CMD_GET_STATUS: replied with caps 0x%" PRIx64 " name=%s",
+                         status_payload.cap_bitmap, status_payload.fw_name);
+            } else {
+                xStreamBufferSend(spi_slave_rx_ring_buf, (void*) data_buf, ret_trans->trans_len, portMAX_DELAY);
+                // notify length to AT core
+                esp_at_port_recv_data_notify(ret_trans->trans_len, portMAX_DELAY);
+            }
 
         } else if (trans_msg.direct == SPI_SLAVE_WR) {     // slave -> master
             remain_len = xStreamBufferBytesAvailable(spi_slave_tx_ring_buf);
