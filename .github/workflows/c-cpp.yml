@@ -39,8 +39,9 @@ jobs:
         python -c "
         import os
         config_root = 'module_config'
-        for module_dir in os.listdir(config_root):
+        module_dirs = [d for d in os.listdir(config_root) if os.path.isdir(os.path.join(config_root, d))]
+        for module_dir in module_dirs:
             idf_ver = os.path.join(config_root, module_dir, 'IDF_VERSION')
             assert os.path.exists(idf_ver), 'Missing IDF_VERSION in {}'.format(module_dir)
-        print('All {} module configs are valid'.format(len(os.listdir(config_root))))
+        print('All {} module configs are valid'.format(len(module_dirs)))
         "
