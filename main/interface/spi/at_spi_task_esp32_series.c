@@ -265,19 +265,25 @@ static void at_spi_slave_task(void* pvParameters)
                 m1_esp32_status_payload_t status_payload;
                 at_m1_status_build_payload(&status_payload);
 
-                xStreamBufferSend(spi_slave_tx_ring_buf, (void*)&status_payload,
-                                  sizeof(status_payload), portMAX_DELAY);
-                spi_mutex_lock();
-                if (initiative_send_flag == 0) {
-                    initiative_send_flag = 1;
-                    spi_msg_t spi_msg = { .direct = SPI_SLAVE_WR };
-                    if (xQueueSend(msg_queue, (void*)&spi_msg, 0) != pdPASS) {
-                        ESP_LOGE(TAG, "send WR queue for CMD_GET_STATUS error");
+                size_t sent = xStreamBufferSend(spi_slave_tx_ring_buf, (void*)&status_payload,
+                                                sizeof(status_payload), portMAX_DELAY);
+                if (sent != sizeof(status_payload)) {
+                    ESP_LOGE(TAG, "CMD_GET_STATUS: TX buffer full, dropped response (%d/%d bytes)",
+                             (int)sent, (int)sizeof(status_payload));
+                } else {
+                    spi_mutex_lock();
+                    if (initiative_send_flag == 0) {
+                        spi_msg_t spi_msg = { .direct = SPI_SLAVE_WR };
+                        if (xQueueSend(msg_queue, (void*)&spi_msg, 0) == pdPASS) {
+                            initiative_send_flag = 1;
+                        } else {
+                            ESP_LOGE(TAG, "send WR queue for CMD_GET_STATUS error");
+                        }
                     }
+                    spi_mutex_unlock();
+                    ESP_LOGD(TAG, "CMD_GET_STATUS: replied with caps 0x%" PRIx64 " name=%s",
+                             status_payload.cap_bitmap, status_payload.fw_name);
                 }
-                spi_mutex_unlock();
-                ESP_LOGD(TAG, "CMD_GET_STATUS: replied with caps 0x%" PRIx64 " name=%s",
-                         status_payload.cap_bitmap, status_payload.fw_name);
             } else {
                 xStreamBufferSend(spi_slave_rx_ring_buf, (void*) data_buf, ret_trans->trans_len, portMAX_DELAY);
                 // notify length to AT core
