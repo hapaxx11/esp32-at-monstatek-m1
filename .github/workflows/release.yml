@@ -1,0 +1,132 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'ESP32 platform target'
+        required: true
+        default: 'PLATFORM_ESP32'
+        type: choice
+        options:
+          - PLATFORM_ESP32
+          - PLATFORM_ESP32C3
+          - PLATFORM_ESP32C2
+          - PLATFORM_ESP32C6
+      module:
+        description: 'Module name (must match factory_param_data.csv)'
+        required: true
+        default: 'WROOM-32'
+      silence:
+        description: 'Silence mode (removes some logs to reduce firmware size)'
+        required: true
+        default: '0'
+        type: choice
+        options:
+          - '0'
+          - '1'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Compute next build number
+        id: version
+        run: |
+          # Find the highest existing build-N tag
+          latest=$(git tag --list 'build-*' | sed 's/build-//' | sort -n | tail -1)
+          if [ -z "$latest" ]; then
+            next=1
+          else
+            next=$((latest + 1))
+          fi
+          echo "build_number=$next" >> "$GITHUB_OUTPUT"
+          echo "tag=build-$next" >> "$GITHUB_OUTPUT"
+          echo "Next build number: $next"
+
+      - name: Configure build (write module_info.json)
+        run: |
+          mkdir -p build
+          echo "{\"platform\": \"${{ inputs.platform }}\", \"module\": \"${{ inputs.module }}\", \"silence\": ${{ inputs.silence }}}" > build/module_info.json
+          echo "module_info.json:"
+          cat build/module_info.json
+
+      - name: Install Python prerequisites
+        run: pip install -r requirements.txt
+
+      - name: Install ESP-IDF environment
+        run: ./build.py install
+
+      - name: Build firmware
+        run: ./build.py build
+
+      - name: Collect firmware artifacts
+        run: |
+          mkdir -p release_artifacts
+          # Copy all relevant build outputs
+          cp build/*.bin release_artifacts/ 2>/dev/null || true
+          cp build/*.elf release_artifacts/ 2>/dev/null || true
+          cp build/*.map release_artifacts/ 2>/dev/null || true
+          cp build/flasher_args.json release_artifacts/ 2>/dev/null || true
+          cp build/download.config release_artifacts/ 2>/dev/null || true
+          cp sdkconfig release_artifacts/ 2>/dev/null || true
+          # Bootloader and partition table
+          mkdir -p release_artifacts/bootloader release_artifacts/partition_table
+          cp build/bootloader/*.bin release_artifacts/bootloader/ 2>/dev/null || true
+          cp build/partition_table/*.bin release_artifacts/partition_table/ 2>/dev/null || true
+          # Factory image (single combined binary)
+          if [ -d build/factory ]; then
+            cp -r build/factory release_artifacts/
+          fi
+          # Customized partitions (NVS etc.)
+          if [ -d build/customized_partitions ]; then
+            cp -r build/customized_partitions release_artifacts/
+          fi
+          echo "Artifacts collected:"
+          find release_artifacts -type f | sort
+
+      - name: Create zip archive
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          module="${{ inputs.module }}"
+          # replace spaces with dashes, then convert to lowercase
+          module_safe="${module// /-}"
+          module_safe="${module_safe,,}"
+          archive_name="esp32-at-${module_safe}-${tag}.zip"
+          zip -r "$archive_name" release_artifacts/
+          echo "archive=$archive_name" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Build ${{ steps.version.outputs.build_number }} — ${{ inputs.platform }} / ${{ inputs.module }}"
+          body: |
+            ## ESP32-AT Firmware Release
+
+            | Field | Value |
+            |-------|-------|
+            | Build | ${{ steps.version.outputs.build_number }} |
+            | Platform | ${{ inputs.platform }} |
+            | Module | ${{ inputs.module }} |
+            | Silence mode | ${{ inputs.silence }} |
+            | Triggered by | @${{ github.actor }} |
+            | Commit | ${{ github.sha }} |
+
+            Download the zip archive below and flash using [qMonstatek](https://github.com/bedge117/qMonstatek) or the device UI.
+          files: ${{ env.archive }}
+          draft: false
+          prerelease: false
