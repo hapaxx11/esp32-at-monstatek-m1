@@ -75,18 +75,14 @@ jobs:
           # idf-component-manager 1.4.1 requires schema<0.7.6; newer schema versions
           # break idf_component_tools at import time with a TypeError in re.sub().
           # TODO: remove this step once idf-component-manager is updated upstream.
-          patched=0
-          for pip in "$HOME/.espressif/python_env"/*/bin/pip; do
-            if [ -f "$pip" ]; then
-              "$pip" install "schema==0.7.5"
-              patched=$((patched + 1))
-            fi
-          done
-          if [ "$patched" -eq 0 ]; then
-            echo "ERROR: No IDF Python virtualenv found under $HOME/.espressif/python_env" >&2
+          IDF_PYTHON_ENV_PATH=$(python esp-idf/tools/idf_tools.py export --format=key-value \
+            | grep '^IDF_PYTHON_ENV_PATH=' | cut -d= -f2-)
+          if [ -z "$IDF_PYTHON_ENV_PATH" ]; then
+            echo "ERROR: Could not determine IDF_PYTHON_ENV_PATH from idf_tools.py" >&2
             exit 1
           fi
-          echo "Patched schema in $patched virtualenv(s)."
+          echo "IDF_PYTHON_ENV_PATH=$IDF_PYTHON_ENV_PATH"
+          "$IDF_PYTHON_ENV_PATH/bin/pip" install "schema==0.7.5"
 
       - name: Build firmware
         run: ./build.py build
