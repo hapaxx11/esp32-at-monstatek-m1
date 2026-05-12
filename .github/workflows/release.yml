@@ -84,6 +84,23 @@ jobs:
           echo "IDF_PYTHON_ENV_PATH=$IDF_PYTHON_ENV_PATH"
           "$IDF_PYTHON_ENV_PATH/bin/pip" install "schema==0.7.5"
 
+      - name: Weaken ieee80211_raw_frame_sanity_check symbol in libnet80211 (allow custom override)
+        run: |
+          OBJCOPY=$(find "$HOME/.espressif/tools/riscv32-esp-elf" -name "riscv32-esp-elf-objcopy" 2>/dev/null | head -1)
+          if [ -z "$OBJCOPY" ]; then
+            echo "riscv32-esp-elf-objcopy not found, skipping symbol weakening"
+            exit 0
+          fi
+          LIBNET="esp-idf/components/esp_wifi/lib/esp32c6/libnet80211.a"
+          if [ -f "$LIBNET" ]; then
+            echo "Weakening ieee80211_raw_frame_sanity_check in $LIBNET"
+            "$OBJCOPY" --weaken-symbol=ieee80211_raw_frame_sanity_check "$LIBNET" "${LIBNET}.patched"
+            mv "${LIBNET}.patched" "$LIBNET"
+            echo "Done."
+          else
+            echo "$LIBNET not found, skipping"
+          fi
+
       - name: Build firmware
         run: ./build.py build
 

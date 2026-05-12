@@ -36,9 +36,11 @@ static uint16_t             s_enable_mode = 0;
 
 
 /**
- * @brief Decomplied function that overrides original one at compilation time.
+ * @brief Decompiled function that overrides the original one at link time.
  *
- * @attention This function is not meant to be called!
+ * @attention This function is not meant to be called directly!
+ * The corresponding strong symbol in libnet80211.a is weakened by the CI build step
+ * (objcopy --weaken-symbol) so that this definition takes precedence at link time.
  * @see Project with original idea/implementation https://github.com/GANESH-ICMC/esp32-deauther
  */
 extern int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
