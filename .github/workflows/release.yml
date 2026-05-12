@@ -6,7 +6,7 @@ on:
       platform:
         description: 'ESP32 platform target'
         required: true
-        default: 'PLATFORM_ESP32'
+        default: 'PLATFORM_ESP32C6'
         type: choice
         options:
           - PLATFORM_ESP32
@@ -14,9 +14,9 @@ on:
           - PLATFORM_ESP32C2
           - PLATFORM_ESP32C6
       module:
-        description: 'Module name (must match factory_param_data.csv)'
+        description: 'Module name (must match factory_param_data.csv for the chosen platform)'
         required: true
-        default: 'WROOM-32'
+        default: 'ESP32C6-4MB'
       silence:
         description: 'Silence mode (removes some logs to reduce firmware size)'
         required: true
