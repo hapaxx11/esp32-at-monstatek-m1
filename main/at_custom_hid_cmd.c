@@ -2,24 +2,20 @@
  * at_custom_hid_cmd.c — BLE HID Keyboard AT Commands for ESP32-C6
  *
  * Custom AT commands:
- *   AT+BLEHIDINIT=1  — Register HID GATT service (call after AT+BLEINIT=2)
- *   AT+BLEHIDKB=<mod>,<k1>,...,<k6> — Send keyboard report notification
+ *   AT+HIDKBINIT=1  — Register HID GATT service (call after AT+BLEINIT=2)
+ *   AT+HIDKBSEND=<mod>,<k1>,...,<k6> — Send keyboard report notification
  *
  * Advertising is handled by stock AT+BLEADVDATAEX from the M1 side.
- * HID GATT service is registered via NimBLE dynamic service API (not CSV)
+ * HID GATT services are registered via ble_gatts_add_svcs() (not CSV)
  * to avoid attribute count limits in the precompiled AT library and to
  * ensure services are visible to remote BLE clients.
  *
- * HID GATT services are registered via ble_gatts_add_dynamic_svcs()
- * (requires CONFIG_BT_NIMBLE_DYNAMIC_SERVICE=y). Called after AT+BLEINIT=2
- * but before advertising starts.
- *
  * Flow:
  *   1. AT+BLEINIT=2
- *   2. AT+HIDKBINIT=1          — dynamically registers DIS+Battery+HID
+ *   2. AT+HIDKBINIT=1          — registers DIS+Battery+HID GATT services
  *   3. AT+BLEADVDATAEX=...     — advertise with HID UUID 0x1812
  *   4. Host connects, pairs
- *   5. AT+BLEHIDKB=...         — send keystrokes
+ *   5. AT+HIDKBSEND=...        — send keystrokes
  */
 
 #include <string.h>
@@ -324,7 +320,7 @@ static const struct ble_gatt_svc_def hid_svcs[] = {
  * ======================================================================== */
 
 /*
- * AT+BLEHIDINIT=<enable>
+ * AT+HIDKBINIT=<enable>
  *   1 = Register HID GATT service via NimBLE API.
  *   Must be called after AT+BLEINIT=2 (NimBLE running).
  *   Idempotent — safe to call multiple times.
@@ -357,12 +353,11 @@ at_setup_cmd_blehidinit(uint8_t para_num)
     /* Set GAP Appearance to Keyboard (0x03C1) so Windows HOGP driver binds */
     ble_svc_gap_device_appearance_set(0x03C1);
 
-    /* Register DIS + Battery + HID services via the dynamic path.
-     * Requires CONFIG_BT_NIMBLE_DYNAMIC_SERVICE=y in sdkconfig.
+    /* Register DIS + Battery + HID services.
      * Must be called after AT+BLEINIT=2 and before AT+BLEADVSTART. */
-    int rc = ble_gatts_add_dynamic_svcs(hid_svcs);
+    int rc = ble_gatts_add_svcs(hid_svcs);
     if (rc != 0) {
-        ESP_LOGE(TAG, "ble_gatts_add_dynamic_svcs failed: %d", rc);
+        ESP_LOGE(TAG, "ble_gatts_add_svcs failed: %d", rc);
         return ESP_AT_RESULT_CODE_ERROR;
     }
 
@@ -378,10 +373,10 @@ at_setup_cmd_blehidinit(uint8_t para_num)
 }
 
 /*
- * AT+BLEHIDKB=<modifier>,<key1>,<key2>,<key3>,<key4>,<key5>,<key6>
+ * AT+HIDKBSEND=<modifier>,<key1>,<key2>,<key3>,<key4>,<key5>,<key6>
  *   Sends an 8-byte keyboard HID report via notification.
  *   All values are decimal 0-255.  Key codes use USB HID usage table.
- *   To release all keys: AT+BLEHIDKB=0,0,0,0,0,0,0
+ *   To release all keys: AT+HIDKBSEND=0,0,0,0,0,0,0
  */
 static uint8_t
 at_setup_cmd_blehidkb(uint8_t para_num)
