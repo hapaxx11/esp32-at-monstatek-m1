@@ -35,17 +35,6 @@ static uint8_t              s_channel = 0;
 static uint16_t             s_enable_mode = 0;
 
 
-/**
- * @brief Decomplied function that overrides original one at compilation time.
- *
- * @attention This function is not meant to be called!
- * @see Project with original idea/implementation https://github.com/GANESH-ICMC/esp32-deauther
- */
-extern int ieee80211_raw_frame_sanity_check(int32_t arg, int32_t arg2, int32_t arg3) {
-    if (arg == 31337) return 1;
-    else return 0;
-}
-
 static void deauth_task(void *arg)
 {
     int i = 0;
