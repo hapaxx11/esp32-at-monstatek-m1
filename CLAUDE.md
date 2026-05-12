@@ -4,7 +4,25 @@ This file captures important context for AI coding agents working in this reposi
 
 ## Project Overview
 
-This is a fork of the [ESP-AT](https://github.com/espressif/esp-at) firmware project targeting ESP32C6 (and other ESP32 variants), adding custom AT commands for Wi-Fi deauthentication (`AT+DEAUTH`), station scanning (`AT+STASCAN`), and a binary capability probe (`CMD_GET_STATUS`).
+This is **ESP32-C6 SPI AT firmware for the Monstatek M1** — a pre-configured fork of [ESP-AT](https://github.com/espressif/esp-at) with the correct SPI pin mapping and SPI half-duplex fix for the M1 hardware.
+
+Beyond the upstream ESP-AT baseline, this fork adds:
+
+- **`AT+DEAUTH`** — Wi-Fi deauthentication attack (`main/at_custom_deauth.c`)
+- **`AT+STASCAN`** — Sniff stations connected to an AP (`main/at_custom_stascan.c`)
+- **`CMD_GET_STATUS` binary opcode `0x02`** — M1 capability probe response (`main/interface/spi/at_spi_task_esp32_series.c` + `main/include/at_m1_status.h`)
+
+### CMD_GET_STATUS purpose (PR #2)
+
+The M1 host probes firmware capabilities via binary opcode `0x02` over SPI before falling back to a ~5 s `AT+CMD?` text enumeration. Without a handler, every boot paid that full timeout cost. This firmware intercepts opcode `0x02` in the SPI receive loop and responds with a packed 41-byte payload:
+
+| Field | Size | Value |
+|-------|------|-------|
+| `proto_ver` | 1 byte | `0x01` |
+| `cap_bitmap` | 8 bytes | `0x14412` (little-endian) — `STA_SCAN \| DEAUTH \| WIFI_JOIN \| BLE_HID \| 802154` |
+| `fw_name` | 32 bytes | `"AT-neddy299-1.0.1"` (null-terminated) |
+
+The AT framework never sees the binary opcode — it is consumed entirely in the SPI task. Constants and struct are defined in `main/include/at_m1_status.h`, which is designed to be portable to other ESP32 firmware variants (adjust `M1_ESP32_THIS_FW_CAP_BITMAP` and `M1_ESP32_THIS_FW_NAME`, then add the same opcode check to their SPI receive loop).
 
 ---
 
