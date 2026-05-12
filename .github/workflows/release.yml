@@ -70,6 +70,24 @@ jobs:
       - name: Install ESP-IDF environment
         run: ./build.py install
 
+      - name: Fix schema package compatibility in IDF Python env
+        run: |
+          # idf-component-manager 1.4.1 requires schema<0.7.6; newer schema versions
+          # break idf_component_tools at import time with a TypeError in re.sub().
+          # TODO: remove this step once idf-component-manager is updated upstream.
+          patched=0
+          for pip in "$HOME/.espressif/python_env"/*/bin/pip; do
+            if [ -f "$pip" ]; then
+              "$pip" install "schema==0.7.5"
+              patched=$((patched + 1))
+            fi
+          done
+          if [ "$patched" -eq 0 ]; then
+            echo "ERROR: No IDF Python virtualenv found under $HOME/.espressif/python_env" >&2
+            exit 1
+          fi
+          echo "Patched schema in $patched virtualenv(s)."
+
       - name: Build firmware
         run: ./build.py build
 
