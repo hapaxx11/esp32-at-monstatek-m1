@@ -70,6 +70,20 @@ jobs:
       - name: Install ESP-IDF environment
         run: ./build.py install
 
+      - name: Fix schema package compatibility in IDF Python env
+        run: |
+          # idf-component-manager 1.4.1 requires schema<0.7.6; newer schema versions
+          # break idf_component_tools at import time with a TypeError in re.sub().
+          # TODO: remove this step once idf-component-manager is updated upstream.
+          IDF_PYTHON_ENV_PATH=$(python esp-idf/tools/idf_tools.py export --format=key-value \
+            | grep '^IDF_PYTHON_ENV_PATH=' | cut -d= -f2-)
+          if [ -z "$IDF_PYTHON_ENV_PATH" ]; then
+            echo "ERROR: Could not determine IDF_PYTHON_ENV_PATH from idf_tools.py" >&2
+            exit 1
+          fi
+          echo "IDF_PYTHON_ENV_PATH=$IDF_PYTHON_ENV_PATH"
+          "$IDF_PYTHON_ENV_PATH/bin/pip" install "schema==0.7.5"
+
       - name: Build firmware
         run: ./build.py build
 
