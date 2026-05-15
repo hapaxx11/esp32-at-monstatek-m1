@@ -16,7 +16,7 @@ on:
       module:
         description: 'Module name (must match factory_param_data.csv for the chosen platform)'
         required: true
-        default: 'ESP32C6-4MB'
+        default: 'ESP32C6-SPI'
       silence:
         description: 'Silence mode (removes some logs to reduce firmware size)'
         required: true
@@ -104,60 +104,71 @@ jobs:
       - name: Build firmware
         run: ./build.py build
 
-      - name: Collect firmware artifacts
-        run: |
-          mkdir -p release_artifacts
-          # Copy all relevant build outputs
-          cp build/*.bin release_artifacts/ 2>/dev/null || true
-          cp build/*.elf release_artifacts/ 2>/dev/null || true
-          cp build/*.map release_artifacts/ 2>/dev/null || true
-          cp build/flasher_args.json release_artifacts/ 2>/dev/null || true
-          cp build/download.config release_artifacts/ 2>/dev/null || true
-          cp sdkconfig release_artifacts/ 2>/dev/null || true
-          # Bootloader and partition table
-          mkdir -p release_artifacts/bootloader release_artifacts/partition_table
-          cp build/bootloader/*.bin release_artifacts/bootloader/ 2>/dev/null || true
-          cp build/partition_table/*.bin release_artifacts/partition_table/ 2>/dev/null || true
-          # Factory image (single combined binary)
-          if [ -d build/factory ]; then
-            cp -r build/factory release_artifacts/
-          fi
-          # Customized partitions (NVS etc.)
-          if [ -d build/customized_partitions ]; then
-            cp -r build/customized_partitions release_artifacts/
-          fi
-          echo "Artifacts collected:"
-          find release_artifacts -type f | sort
-
-      - name: Create zip archive
+      - name: Prepare release assets
         run: |
           tag="${{ steps.version.outputs.tag }}"
-          module="${{ inputs.module }}"
-          # replace spaces with dashes, then convert to lowercase
-          module_safe="${module// /-}"
-          module_safe="${module_safe,,}"
-          archive_name="esp32-at-${module_safe}-${tag}.zip"
-          zip -r "$archive_name" release_artifacts/
-          echo "archive=$archive_name" >> "$GITHUB_ENV"
+          actor_raw="${{ github.actor }}"
+          module_raw="${{ inputs.module }}"
+          sanitize_name() {
+            printf '%s' "$1" | tr -c 'A-Za-z0-9_-' '-' | sed 's/^-*//; s/-*$//'
+          }
+          actor="$(sanitize_name "$actor_raw")"
+          module="$(sanitize_name "$module_raw")"
+          if [ -z "$actor" ] || [ -z "$module" ]; then
+            echo "ERROR: Sanitized actor/module cannot be empty" >&2
+            exit 1
+          fi
+          base_name="factory_${module}-${actor}-${tag}"
+          factory_bin="build/factory/factory_${module}.bin"
+          if [ ! -f "$factory_bin" ]; then
+            echo "ERROR: Expected factory binary not found: $factory_bin" >&2
+            echo "Available .bin files in build/factory:" >&2
+            find build/factory -maxdepth 1 -type f -name "*.bin" -print >&2 || true
+            exit 1
+          fi
+          if [ ! -r "$factory_bin" ]; then
+            echo "ERROR: Factory binary is not readable: $factory_bin" >&2
+            ls -l "$factory_bin" >&2 || true
+            exit 1
+          fi
+          cp "$factory_bin" "${base_name}.bin"
+          md5sum "${base_name}.bin" > "${base_name}.md5"
+          printf 'bin_file=%s\n' "${base_name}.bin" >> "$GITHUB_ENV"
+          printf 'md5_file=%s\n' "${base_name}.md5" >> "$GITHUB_ENV"
+          echo "Release assets:"
+          ls -lh "${base_name}.bin" "${base_name}.md5"
+          echo "MD5: $(cat "${base_name}.md5")"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: "Build ${{ steps.version.outputs.build_number }} — ${{ inputs.platform }} / ${{ inputs.module }}"
+          name: "${{ steps.version.outputs.tag }} — ${{ inputs.module }}"
           body: |
-            ## ESP32-AT Firmware Release
+            # What's New
 
-            | Field | Value |
-            |-------|-------|
-            | Build | ${{ steps.version.outputs.build_number }} |
-            | Platform | ${{ inputs.platform }} |
-            | Module | ${{ inputs.module }} |
-            | Silence mode | ${{ inputs.silence }} |
-            | Triggered by | @${{ github.actor }} |
-            | Commit | ${{ github.sha }} |
+            - `AT+DEAUTH`: Wi-Fi deauthentication attack
+            - `AT+STASCAN`: Sniff stations (wireless clients) attached to a Wi-Fi access point
+            - Binary opcode `0x02`: M1 capability probe response (fast boot, no 5 s timeout)
 
-            Download the zip archive below and flash using [qMonstatek](https://github.com/bedge117/qMonstatek) or the device UI.
-          files: ${{ env.archive }}
+            # Flashing
+
+            It is recommended to use the [qMonstatek](https://github.com/bedge117/qMonstatek) app to flash ESP32 firmware.
+
+            Flash `${{ env.bin_file }}` at offset `0x0` (factory image includes bootloader + partition table + app).
+
+            For M1: place `.bin` and `.md5` on SD card, flash via M1's ESP32 update menu.
+
+            # Build Info
+            - Based on ESP-AT v4.0.0.0 for ESP32-C6
+            - SPI mode 1 (CPOL=0, CPHA=1)
+            - Module: ${{ inputs.module }}
+            - Platform: ${{ inputs.platform }}
+            - Silence mode: ${{ inputs.silence }}
+            - Triggered by: @${{ github.actor }}
+            - Commit: ${{ github.sha }}
+          files: |
+            ${{ env.bin_file }}
+            ${{ env.md5_file }}
           draft: false
           prerelease: false
